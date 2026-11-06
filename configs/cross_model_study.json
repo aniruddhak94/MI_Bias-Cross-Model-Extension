@@ -1,0 +1,21 @@
+{
+  "experiment_name": "cross-model-mechanistic-bias-study",
+  "model_name": "gpt2",
+  "models_in_order": ["gpt2", "gpt2-large", "meta-llama/Llama-2-7b-hf"],
+  "model_revision": null,
+  "bias_types": ["gender", "demographic"],
+  "datasets": ["gender-matched-prompts", "demographic-matched-prompts"],
+  "seed": 42,
+  "device": "auto",
+  "output_root": "runs",
+  "options": {
+    "eap_top_k": [20, 50, 100],
+    "probe_split": "group-disjoint",
+    "probe_validation_fraction": 0.2,
+    "caa_leace_validation_only_selection": true,
+    "gate_target_recall": 0.95,
+    "report_tasks": ["paired bias", "CoLA MCC", "CoLA perplexity", "CoNLL entity-span F1"],
+    "seed_sweep": [17, 42, 73],
+    "notes": "Use model-specific layers and transforms; never transfer GPT-2 layer indices to Llama-2."
+  }
+}

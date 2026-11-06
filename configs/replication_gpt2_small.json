@@ -1,0 +1,31 @@
+{
+  "experiment_name": "thesis-replication-gpt2-small",
+  "model_name": "gpt2",
+  "model_revision": null,
+  "bias_types": ["gender"],
+  "datasets": ["prior-thesis-gender-prompts"],
+  "seed": 42,
+  "device": "auto",
+  "output_root": "runs",
+  "options": {
+    "purpose": "reconcile reported thesis figures with saved run artifacts before extension",
+    "reported_claims": {
+      "mean_bias_before": 8.5654,
+      "mean_bias_after": 7.7028,
+      "bias_reduction_percent": 10.07,
+      "cola_perplexity_before": 73.27,
+      "cola_perplexity_after": 80.71,
+      "prompts_improved": 193,
+      "prompt_count": 200
+    },
+    "hybrid": {
+      "caa_strength": 3.0,
+      "leace_alpha": 0.3,
+      "layers": [6, 8, 9, 10, 11]
+    },
+    "required_outputs": [
+      "baseline metrics", "EAP ranking", "grouped probe results",
+      "CAA and covariance-aware LEACE transforms", "held-out evaluation"
+    ]
+  }
+}
