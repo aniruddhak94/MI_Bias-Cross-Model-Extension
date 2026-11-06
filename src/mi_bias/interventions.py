@@ -46,7 +46,7 @@ def build_residual_hooks(
                 raise ValueError(f"CAA and LEACE dimensions disagree at layer {layer}")
 
         def make_hook(vector, transform):
-            def hook(activation, _hook):
+            def hook(activation, **_kwargs):
                 result = activation
                 if transform is not None and leace_alpha:
                     matrix, bias = (part.to(activation.device, activation.dtype) for part in transform)
