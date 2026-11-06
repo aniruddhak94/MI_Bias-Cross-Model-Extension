@@ -33,6 +33,8 @@ The expected prompt-pair fields and staged fitting/evaluation commands are docum
 
 For Kaggle accelerator settings, copyable notebook cells, and per-phase completion estimates, see [docs/KAGGLE_RUNBOOK.md](docs/KAGGLE_RUNBOOK.md).
 
+After evaluation, generate thesis-style PNG and PDF figures from the saved JSON reports with `python scripts/plot_results.py`; it writes available figures under `results/figures/`.
+
 🚧 **Note:** This repository is currently undergoing restructuring. Some components may change. Thanks for your patience!
 
 ## Overview

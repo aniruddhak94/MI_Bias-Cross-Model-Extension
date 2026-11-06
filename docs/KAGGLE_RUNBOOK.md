@@ -178,7 +178,28 @@ run('scripts/evaluate_gated_intervention.py', 'kaggle_data/test.json',
 
 This reports gate precision, recall, false-positive and false-negative rates when labels are present, plus always-on and gated bias changes. Interpret the simple occupation-template gate as a software demonstration until it has been trained on a richer, reviewed prompt set.
 
-### 7. Package results for download
+### 7. Generate and display thesis-style plots
+
+This reads the saved JSON and EAP edge list; it does not rerun model inference. It saves each figure as PNG and PDF under `results/figures/`.
+
+```python
+run(
+    "scripts/plot_results.py",
+    "--results-dir", "results",
+    "--artifacts-dir", "artifacts",
+    "--output-dir", "results/figures",
+    "--top-k", "20"
+)
+
+from IPython.display import Image, display
+for image_path in sorted((REPO / "results" / "figures").glob("*.png")):
+    print(image_path.name)
+    display(Image(filename=str(image_path)))
+```
+
+It generates the bias summary, per-prompt comparison, bias distribution, validation grid, probe accuracy, gate diagnostics, and EAP top-edge figures when their source files are available. The existing EAP circuit diagram is also in `results/eap_gpt2/`.
+
+### 8. Package results for download
 
 ```python
 import shutil
