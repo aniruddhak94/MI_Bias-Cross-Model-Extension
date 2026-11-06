@@ -22,9 +22,9 @@ Kaggle's notebook settings cover the accelerator and internet controls. Kaggle's
 from pathlib import Path
 import os, subprocess, sys
 
-REPO = Path('/kaggle/working/MI_Bias')
+REPO = Path('/kaggle/working/MI_Bias-Cross-Model-Extension')
 if not REPO.exists():
-    subprocess.run(['git', 'clone', 'https://github.com/aniruddhak94/MI_Bias.git', str(REPO)], check=True)
+    subprocess.run(['git', 'clone', 'https://github.com/aniruddhak94/MI_Bias-Cross-Model-Extension.git', str(REPO)], check=True)
 os.chdir(REPO)
 # Graphviz is needed by the legacy EAP visualization code.
 subprocess.run(['apt-get', 'update', '-qq'], check=True)
