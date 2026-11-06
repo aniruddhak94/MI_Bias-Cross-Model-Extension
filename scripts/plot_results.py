@@ -156,7 +156,7 @@ def plot_per_prompt(static, output_dir):
     right.set_title("Paired change", fontweight="bold")
     right.tick_params(axis="y", left=False, labelleft=False)
     fig.suptitle("Per-prompt held-out intervention results", fontweight="bold")
-    fig.tight_layout()
+    fig.subplots_adjust(left=0.22, right=0.98, top=0.96, bottom=0.06, wspace=0.10)
     save_figure(fig, output_dir, "per_prompt_bias_comparison")
 
 
@@ -187,6 +187,36 @@ def plot_bias_distribution(static, output_dir):
     axes[1].legend()
     fig.tight_layout()
     save_figure(fig, output_dir, "bias_distribution")
+
+
+def plot_paired_statistics(static, output_dir):
+    summary = static.get("summary", {})
+    interval = summary.get("mean_reduction_bootstrap_95ci")
+    mean_change = summary.get("mean_absolute_reduction")
+    if interval is None or mean_change is None:
+        print("Skipped paired statistics plot: no paired bootstrap interval")
+        return
+    low, high = map(float, interval)
+    mean_change = float(mean_change)
+    improved = int(summary.get("improved_count", 0))
+    n = int(summary.get("n", 0))
+    fig, ax = plt.subplots(figsize=(8, 3.8))
+    ax.errorbar(
+        mean_change, 0,
+        xerr=[[mean_change - low], [high - mean_change]],
+        fmt="o", markersize=9, color=PALETTE["primary"],
+        ecolor=PALETTE["secondary"], capsize=7, linewidth=2,
+    )
+    ax.axvline(0, color=PALETTE["danger"], linestyle="--", linewidth=1.5,
+               label="No mean change")
+    ax.set_yticks([])
+    ax.set_xlabel("Mean paired bias reduction (+ = lower bias)")
+    ax.set_title("Held-out paired reduction with 95% bootstrap interval", fontweight="bold")
+    ax.text(0.02, 0.9, f"Improved prompts: {improved}/{n}", transform=ax.transAxes,
+            ha="left", va="top", fontsize=10)
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    save_figure(fig, output_dir, "statistical_analysis")
 
 
 def plot_validation_grid(results_dir, output_dir):
@@ -329,6 +359,7 @@ def main():
         plot_bias_summary(baseline, static, gated, args.output_dir)
         plot_per_prompt(static, args.output_dir)
         plot_bias_distribution(static, args.output_dir)
+        plot_paired_statistics(static, args.output_dir)
     else:
         print("Skipped held-out bias figures: baseline/static test JSON is missing")
 

@@ -197,7 +197,7 @@ for image_path in sorted((REPO / "results" / "figures").glob("*.png")):
     display(Image(filename=str(image_path)))
 ```
 
-It generates the bias summary, per-prompt comparison, bias distribution, validation grid, probe accuracy, gate diagnostics, and EAP top-edge figures when their source files are available. The existing EAP circuit diagram is also in `results/eap_gpt2/`.
+It generates the bias summary, per-prompt comparison, bias distribution, paired statistical interval, validation grid, probe accuracy, gate diagnostics, and EAP top-edge figures when their source files are available. The existing EAP circuit diagram is also in `results/eap_gpt2/`.
 
 ### 8. Package results for download
 
