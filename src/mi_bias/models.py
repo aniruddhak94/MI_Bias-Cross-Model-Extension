@@ -58,6 +58,19 @@ def load_hooked_model(
     hf_model = AutoModelForCausalLM.from_pretrained(
         model_name, torch_dtype=torch_dtype, **common
     )
+    # TransformerLens 2.x reads GPT-NeoX's legacy ``rotary_pct`` attribute.
+    # Transformers 5 stores the same value under ``rope_parameters`` instead.
+    # Bridge that config field before TL builds its HookedTransformer config.
+    hf_config = hf_model.config
+    if getattr(hf_config, "model_type", None) == "gpt_neox" and not hasattr(
+        hf_config, "rotary_pct"
+    ):
+        rope_parameters = getattr(hf_config, "rope_parameters", {}) or {}
+        if isinstance(rope_parameters, dict):
+            rotary_fraction = rope_parameters.get("partial_rotary_factor", 0.25)
+        else:
+            rotary_fraction = getattr(rope_parameters, "partial_rotary_factor", 0.25)
+        hf_config.rotary_pct = float(rotary_fraction)
     hooked = HookedTransformer.from_pretrained(
         model_name, hf_model=hf_model, tokenizer=tokenizer, device=resolved_device,
         dtype=resolved_dtype,
