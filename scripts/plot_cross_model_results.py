@@ -56,8 +56,8 @@ def bootstrap_mean(values, rng, n_boot=5000, groups=None):
 
 def paired_arrays(static):
     rows = static.get("per_prompt", [])
-    before = np.asarray([float(row["bias_before"]) for row in rows])
-    after = np.asarray([float(row["bias_after"]) for row in rows])
+    before = np.asarray([float(row.get("counterfactual_bias_before", row["bias_before"])) for row in rows])
+    after = np.asarray([float(row.get("counterfactual_bias_after", row["bias_after"])) for row in rows])
     return rows, before, after
 
 
@@ -72,7 +72,9 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
     if baseline and any(key not in base_rows for key in ids):
         raise ValueError(f"Baseline/test prompt IDs differ for {slug}")
     if baseline:
-        before_from_baseline = np.asarray([float(base_rows[key]["bias_score"]) for key in ids])
+        before_from_baseline = np.asarray([float(base_rows[key].get(
+            "counterfactual_bias_score", base_rows[key]["bias_score"]
+        )) for key in ids])
         if not np.allclose(before, before_from_baseline, rtol=1e-5, atol=1e-6):
             print(f"WARNING: baseline and static pre-scores differ for {slug}; figures use baseline JSON values")
         before = before_from_baseline
@@ -85,7 +87,10 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
     if gated:
         gate_rows = {row.get("pair_id"): row for row in gated.get("per_prompt", [])}
         if all(key in gate_rows for key in ids) and all("bias_gated" in gate_rows[key] for key in ids):
-            values.append(np.asarray([float(gate_rows[key]["bias_gated"]) for key in ids]))
+            gate_key = "counterfactual_bias_gated" if all(
+                "counterfactual_bias_gated" in gate_rows[key] for key in ids
+            ) else "bias_gated"
+            values.append(np.asarray([float(gate_rows[key][gate_key]) for key in ids]))
             labels.append("Gated")
             colors.append(COLORS["gated"])
 
@@ -98,8 +103,8 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
     ax.errorbar(range(len(means)), means, yerr=errors, fmt="none", ecolor="#17202A", capsize=5)
     for bar, value in zip(bars, means):
         ax.text(bar.get_x() + bar.get_width()/2, value, f"{value:.3f}", ha="center", va="bottom")
-    ax.set_ylabel("Mean token-aware paired bias score")
-    ax.set_title(f"{label}: held-out bias (95% bootstrap CI, n={len(before)})")
+    ax.set_ylabel("Mean absolute counterfactual stereotype effect (log-odds)")
+    ax.set_title(f"{label}: held-out counterfactual bias (95% group-bootstrap CI, n={len(before)})")
     ax.set_ylim(bottom=0)
     fig.tight_layout()
     save(fig, folder, f"{slug}_heldout_bias")
@@ -218,7 +223,7 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
         ax.set_yticks(range(len(caas)), [f"{v:g}" for v in caas])
         ax.set_xlabel("LEACE blend")
         ax.set_ylabel("CAA strength")
-        ax.set_title(f"{label}: validation-only relative reduction (%)")
+        ax.set_title(f"{label}: validation counterfactual relative reduction (%)")
         for i in range(len(caas)):
             for j in range(len(alphas)):
                 if np.isfinite(matrix[i, j]):
@@ -341,7 +346,7 @@ def plot_cross_model(summaries, output_root):
         save(fig, output_root, "cross_model_bias_capability_tradeoff")
 
     table = {
-        "comparison_note": "Relative reductions use paired held-out prompts with occupation-cluster bootstrap intervals; absolute scores may differ with model/tokenizer behavior.",
+        "comparison_note": "Primary relative reductions use paired held-out counterfactual stereotype-effect scores with occupation-cluster bootstrap intervals; absolute scores may differ with model/tokenizer behavior.",
         "models": summaries,
     }
     output_root.mkdir(parents=True, exist_ok=True)

@@ -13,8 +13,8 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from mi_bias.data import load_prompt_pairs
 from mi_bias.guardrails import validate_bias_metric_pairs
 from mi_bias.metrics import (
-    bootstrap_mean_interval, score_prompt_bias, score_thesis_legacy_l2,
-    thesis_gender_token_ids,
+    bootstrap_mean_interval, counterfactual_stereotype_effect, score_prompt_bias,
+    score_thesis_legacy_l2, thesis_gender_token_ids,
 )
 from mi_bias.models import architecture_metadata, load_hooked_model
 
@@ -36,14 +36,19 @@ def main():
     loaded = load_hooked_model(args.model, revision=args.revision, device=args.device,
                                dtype=args.dtype,
                                token=args.hf_token)
-    scores, legacy_scores, rows = [], [], []
+    scores, counterfactual_scores, legacy_scores, rows = [], [], [], []
     thesis_token_ids = thesis_gender_token_ids(loaded.model)
     for pair in pairs:
         male = pair.metadata["male_continuations"]
         female = pair.metadata["female_continuations"]
         score = score_prompt_bias(loaded.model, pair.clean, male, female)
+        control_score = score_prompt_bias(loaded.model, pair.corrupted, male, female)
         value = float(score["bias_score"].item())
         scores.append(value)
+        counterfactual = counterfactual_stereotype_effect(
+            score, control_score, pair.metadata.get("expected_bias_direction")
+        )
+        counterfactual_scores.append(counterfactual["stereotype_effect_absolute"])
         legacy_value = score_thesis_legacy_l2(
             loaded.model, pair.clean, *thesis_token_ids
         )
@@ -54,6 +59,9 @@ def main():
             "bias_type": pair.bias_type,
             "prompt": pair.clean,
             "bias_score": value,
+            "control_bias_score": float(control_score["bias_score"].item()),
+            **counterfactual,
+            "counterfactual_bias_score": counterfactual["stereotype_effect_absolute"],
             "thesis_legacy_l2_bias_score": legacy_value,
             "male_logprobs": score["male_logprobs"].tolist(),
             "female_logprobs": score["female_logprobs"].tolist(),
@@ -72,6 +80,14 @@ def main():
                 scores, groups=[pair.group_id for pair in pairs]
             ),
             "n": len(scores),
+        },
+        "counterfactual_bias_summary": {
+            "definition": "Absolute expected-direction shift in male/female continuation log odds on the occupation prompt relative to its neutralized control.",
+            "mean_bias": sum(counterfactual_scores) / len(counterfactual_scores),
+            "mean_bias_bootstrap_95ci": bootstrap_mean_interval(
+                counterfactual_scores, groups=[pair.group_id for pair in pairs]
+            ),
+            "n": len(counterfactual_scores),
         },
         "thesis_legacy_l2_summary": {
             "definition": "First-token L2 distance over the previous thesis's aligned gender word lists.",

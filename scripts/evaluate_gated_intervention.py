@@ -14,8 +14,8 @@ from mi_bias.data import load_prompt_pairs
 from mi_bias.guardrails import validate_bias_metric_pairs
 from mi_bias.interventions import build_residual_hooks
 from mi_bias.metrics import (
-    score_prompt_bias, score_thesis_legacy_l2, summarize_paired_changes,
-    thesis_gender_token_ids,
+    counterfactual_stereotype_effect, score_prompt_bias, score_thesis_legacy_l2,
+    summarize_paired_changes, thesis_gender_token_ids,
 )
 from mi_bias.models import load_hooked_model
 
@@ -50,15 +50,18 @@ def main():
     if saved_revision and loaded.model_revision and saved_revision != loaded.model_revision:
         raise ValueError("Loaded model revision does not match the fitted transform artifact")
     model = loaded.model
-    hooks = build_residual_hooks(
+    hooks = None if args.caa_strength == 0 and args.leace_alpha == 0 else build_residual_hooks(
         transforms["caa_directions"], transforms["leace_transforms"],
         caa_strength=args.caa_strength, leace_alpha=args.leace_alpha,
         expected_d_model=int(model.cfg.d_model),
         n_layers=int(model.cfg.n_layers),
     )
-    prompts = [pair.clean for pair in pairs]
-    gate_decisions = gate.predict_sensitive(prompts)
+    prompts = [prompt for pair in pairs for prompt in (pair.clean, pair.corrupted)]
+    gate_pair_decisions = gate.predict_sensitive(prompts)
+    gate_decisions = gate_pair_decisions[::2]
+    control_gate_decisions = gate_pair_decisions[1::2]
     before, static_after, gated_after, legacy_before, legacy_static, legacy_gated = [], [], [], [], [], []
+    counter_before, counter_static, counter_gated = [], [], []
     per_prompt = []
     thesis_token_ids = thesis_gender_token_ids(model)
     gate_eval_prompts, gold = [], []
@@ -69,14 +72,39 @@ def main():
         raise ValueError("Held-out pairs need binary clean_label/corrupted_label for gate evaluation")
     gate_eval_gold = [int(label) for label in gold]
     gate_eval_predictions = gate.predict_sensitive(gate_eval_prompts)
-    for pair, apply_intervention in zip(pairs, gate_decisions):
+    for pair, apply_intervention, apply_control_intervention in zip(
+        pairs, gate_decisions, control_gate_decisions
+    ):
         male = pair.metadata["male_continuations"]
         female = pair.metadata["female_continuations"]
         baseline = score_prompt_bias(model, pair.clean, male, female)
+        control_baseline = score_prompt_bias(model, pair.corrupted, male, female)
         treated = score_prompt_bias(model, pair.clean, male, female, hooks=hooks)
+        control_treated = score_prompt_bias(
+            model, pair.corrupted, male, female, hooks=hooks
+        )
         b = float(baseline["bias_score"].item())
         s = float(treated["bias_score"].item())
         g = s if apply_intervention else b
+        control_g = (
+            float(control_treated["bias_score"].item())
+            if apply_control_intervention else float(control_baseline["bias_score"].item())
+        )
+        cf_before = counterfactual_stereotype_effect(
+            baseline, control_baseline, pair.metadata.get("expected_bias_direction")
+        )
+        cf_static = counterfactual_stereotype_effect(
+            treated, control_treated, pair.metadata.get("expected_bias_direction")
+        )
+        control_gated_score = control_treated if apply_control_intervention else control_baseline
+        gated_clean_score = treated if apply_intervention else baseline
+        cf_gated = counterfactual_stereotype_effect(
+            gated_clean_score, control_gated_score,
+            pair.metadata.get("expected_bias_direction")
+        )
+        counter_before.append(cf_before["stereotype_effect_absolute"])
+        counter_static.append(cf_static["stereotype_effect_absolute"])
+        counter_gated.append(cf_gated["stereotype_effect_absolute"])
         legacy_b = score_thesis_legacy_l2(model, pair.clean, *thesis_token_ids)
         legacy_s = score_thesis_legacy_l2(
             model, pair.clean, *thesis_token_ids, hooks=hooks
@@ -96,9 +124,19 @@ def main():
                 gate.vectorizer.transform([pair.clean])
             )[0, 1]),
             "intervention_applied": apply_intervention,
+            "control_intervention_applied": apply_control_intervention,
             "bias_before": b,
             "bias_always_on": s,
             "bias_gated": g,
+            "control_bias_before": float(control_baseline["bias_score"].item()),
+            "control_bias_always_on": float(control_treated["bias_score"].item()),
+            "control_bias_gated": control_g,
+            "counterfactual_bias_before": cf_before["stereotype_effect_absolute"],
+            "counterfactual_bias_always_on": cf_static["stereotype_effect_absolute"],
+            "counterfactual_bias_gated": cf_gated["stereotype_effect_absolute"],
+            "counterfactual_signed_before": cf_before["stereotype_effect_signed"],
+            "counterfactual_signed_always_on": cf_static["stereotype_effect_signed"],
+            "counterfactual_signed_gated": cf_gated["stereotype_effect_signed"],
             "thesis_legacy_l2_before": legacy_b,
             "thesis_legacy_l2_always_on": legacy_s,
             "thesis_legacy_l2_gated": legacy_g,
@@ -112,6 +150,21 @@ def main():
         "gate_threshold": gate.threshold,
         "summary": {
             "gate_off": summarize_paired_changes(
+                counter_before, counter_before, groups=[pair.group_id for pair in pairs]
+            ),
+            "always_on": summarize_paired_changes(
+                counter_before, counter_static, groups=[pair.group_id for pair in pairs]
+            ),
+            "gated": summarize_paired_changes(
+                counter_before, counter_gated, groups=[pair.group_id for pair in pairs]
+            ),
+            "n_prompts_intervened": sum(gate_decisions),
+            "intervention_rate": sum(gate_decisions) / max(len(gate_decisions), 1),
+            "n_control_prompts_intervened": sum(control_gate_decisions),
+            "control_intervention_rate": sum(control_gate_decisions) / max(len(control_gate_decisions), 1),
+        },
+        "clean_prompt_summary": {
+            "gate_off": summarize_paired_changes(
                 before, before, groups=[pair.group_id for pair in pairs]
             ),
             "always_on": summarize_paired_changes(
@@ -120,8 +173,6 @@ def main():
             "gated": summarize_paired_changes(
                 before, gated_after, groups=[pair.group_id for pair in pairs]
             ),
-            "n_prompts_intervened": sum(gate_decisions),
-            "intervention_rate": sum(gate_decisions) / max(len(gate_decisions), 1),
         },
         "thesis_legacy_l2_summary": {
             "gate_off": summarize_paired_changes(
@@ -151,6 +202,7 @@ def main():
             "false_positive_rate": float(fp / max(fp + tn, 1)),
             "false_negative_rate": float(fn / max(fn + tp, 1)),
             "n_prompt_contexts": len(gate_eval_gold),
+            "evaluation_scope": "matched occupation prompt/control pairs only",
         }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")

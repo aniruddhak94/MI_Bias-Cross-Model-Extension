@@ -123,6 +123,35 @@ def score_prompt_bias(model, prompt: str, male_continuations: list[str],
     }
 
 
+def signed_gender_log_odds(score: dict) -> float:
+    """Signed preference: positive favors the male continuation set."""
+    male = torch.logsumexp(torch.as_tensor(score["male_logprobs"]), dim=-1)
+    female = torch.logsumexp(torch.as_tensor(score["female_logprobs"]), dim=-1)
+    return float((male - female).item())
+
+
+def counterfactual_stereotype_effect(clean_score: dict, control_score: dict,
+                                     expected_bias_direction: str) -> dict[str, float]:
+    """Occupation-specific signed/absolute effect relative to its neutral control.
+
+    Positive signed values mean the clean prompt shifts toward its annotated
+    stereotype direction relative to the paired neutralized prompt.
+    """
+    direction = str(expected_bias_direction).casefold()
+    if direction not in {"male", "female"}:
+        raise ValueError("expected_bias_direction must be 'male' or 'female'")
+    sign = 1.0 if direction == "male" else -1.0
+    clean_log_odds = signed_gender_log_odds(clean_score)
+    control_log_odds = signed_gender_log_odds(control_score)
+    signed_effect = sign * (clean_log_odds - control_log_odds)
+    return {
+        "signed_log_odds_clean": clean_log_odds,
+        "signed_log_odds_control": control_log_odds,
+        "stereotype_effect_signed": signed_effect,
+        "stereotype_effect_absolute": abs(signed_effect),
+    }
+
+
 def _bootstrap_means(values_t: torch.Tensor, *, groups=None, seed: int,
                      samples: int) -> torch.Tensor:
     if groups is None:

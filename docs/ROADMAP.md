@@ -9,6 +9,14 @@
 5. **Dynamic intervention gate:** train a prompt classifier on explicit bias-relevant versus neutral labels. Select its threshold on validation data with recall prioritized. Compare gate-off, always-on, static, and gated conditions; report false-positive and false-negative rates.
 6. **Thesis evaluation:** report paired bias changes, capability impact, per-prompt outcomes, confidence intervals, seed variability, and the selected operating point for each model and bias type.
 
+## Final-run selection protocol
+
+The cross-model runner uses a fixed, small CAA/LEACE grid that includes an explicit no-op. The primary bias measure is the absolute expected-direction shift in gender continuation log odds between each occupation prompt and its paired neutral control; signed values are retained per prompt. The clean-prompt token-aware score and the prior thesis's first-token L2 score remain secondary metrics.
+
+For each model, choose on validation data the candidate with the largest positive primary bias reduction, provided its perplexity increase on a deterministic 128-sentence CoLA **training** sample is at most 10.15%. The 10.15% ceiling is the capability cost reported in the prior thesis, used as a predeclared guardrail rather than a target. If no candidate satisfies both conditions, choose no-op. Evaluate the locked setting once on held-out occupation groups, then report CoLA validation perplexity separately. CoLA perplexity is not task accuracy.
+
+This selector cannot make a small held-out set representative. Keep the occupation-domain limitation visible, and do not describe matched occupation/control gate labels as broad real-world gate validation.
+
 ## Recommended package layout
 
 ```text

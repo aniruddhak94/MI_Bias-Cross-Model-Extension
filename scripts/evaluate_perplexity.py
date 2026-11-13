@@ -87,7 +87,7 @@ def main():
     loaded = load_hooked_model(model_name, revision=revision, device=args.device,
                                dtype=dtype, token=args.hf_token)
     hooks = None
-    if transforms:
+    if transforms and not (args.caa_strength == 0 and args.leace_alpha == 0):
         hooks = build_residual_hooks(
             transforms["caa_directions"], transforms["leace_transforms"],
             caa_strength=args.caa_strength, leace_alpha=args.leace_alpha,
