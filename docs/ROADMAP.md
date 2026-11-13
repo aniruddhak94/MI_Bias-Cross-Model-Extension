@@ -3,7 +3,7 @@
 ## Research sequence
 
 1. **Replication and audit:** reproduce the thesis's GPT-2 small setup and reconcile the reported thesis numbers with saved experiment artifacts before claiming replication.
-2. **Comparable baselines:** measure gender and demographic bias on matched prompt sets, first with GPT-2 small, then GPT-2 Large, then Llama-2. Keep model revisions, tokenizers, data versions, and per-prompt outputs attached to every result.
+2. **Comparable baselines:** measure gender and demographic bias on matched prompt sets, first with GPT-2 small, then GPT-2 Large, then Pythia-1B for the default Kaggle study. Llama-2 remains an optional future run for a larger-memory environment. Keep model revisions, tokenizers, data versions, and per-prompt outputs attached to every result.
 3. **Mechanism analysis:** use EAP to rank edges; validate top-ranked edges with direct activation patching. Train layerwise probes with complete prompt groups held out together. Treat probe scores as decodability evidence, not causal evidence.
 4. **Static interventions:** compare edge ablation, CAA, covariance-aware LEACE, and their hybrid. Fit directions and projections on training data; tune strengths on validation data; report locked settings on held-out data.
 5. **Dynamic intervention gate:** train a prompt classifier on explicit bias-relevant versus neutral labels. Select its threshold on validation data with recall prioritized. Compare gate-off, always-on, static, and gated conditions; report false-positive and false-negative rates.
@@ -35,11 +35,11 @@ runs/<run-id>/     # config, manifest, per-example metrics, figures
 - EAP rankings receive direct-patching checks; probes use group-disjoint splits; intervention settings are selected on validation data and reported on held-out data.
 - Report CoLA perplexity only as language-modeling loss. If claiming CoLA task performance, report its classification metrics including Matthews correlation. If using CoNLL, report exact entity-span F1.
 - Compare gate-off, always-on, static, and gated outcomes; report task-level capability metrics where a task-specific evaluator is available.
-- GPT-2 small is the replication anchor; GPT-2 Large and Llama-2 are the extension models. Learned vectors and layer indices are model-specific.
+- GPT-2 small is the replication anchor; GPT-2 Large and Pythia-1B are the default extension models. Learned vectors and layer indices are model-specific.
 
 ## Current execution status
 
-The scripts accept model checkpoints by name and refit model-specific artifacts, so the workflow is structured for cross-model experiments. The results reviewed so far are from GPT-2 small only; GPT-2 Large and Llama-2 have not yet been run. A configured model list is a plan, not evidence of completed cross-model results.
+The scripts accept model checkpoints by name and refit model-specific artifacts, so the workflow is structured for cross-model experiments. The results reviewed so far are from GPT-2 small only; GPT-2 Large and Pythia-1B have not yet been run. A configured model list is a plan, not evidence of completed cross-model results.
 
 The split preflight (`scripts/validate_splits.py`) blocks pair-ID, group-ID, and exact normalized prompt overlap between train, validation, and test. Bias-evaluation scripts validate the matched continuation arrays before loading model weights. These checks reduce common experiment errors; they do not establish that labels or prompt templates are scientifically valid.
 

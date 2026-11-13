@@ -285,8 +285,8 @@ def main():
     parser.add_argument("--results-dir", type=Path, default=Path("results/cross_model"))
     parser.add_argument("--output-dir", type=Path, default=Path("results/figures/cross_model"))
     parser.add_argument("--artifacts-dir", type=Path, default=Path("artifacts/cross_model"))
-    parser.add_argument("--models", default="gpt2_small,gpt2_large,llama2_7b")
-    parser.add_argument("--labels", default="GPT-2 small,GPT-2 Large,Llama-2 7B")
+    parser.add_argument("--models", default="gpt2_small,gpt2_large,pythia_1b")
+    parser.add_argument("--labels", default="GPT-2 small,GPT-2 Large,Pythia-1B")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 

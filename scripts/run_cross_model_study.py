@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the staged GPT-2 small / GPT-2 Large / Llama-2 Kaggle workflow."""
+"""Run the staged GPT-2 small / GPT-2 Large / Pythia-1B Kaggle workflow."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS = {
     "gpt2_small": {"label": "GPT-2 small", "name": "gpt2", "dtype": "float32", "layers": "6,8,9,10,11"},
     "gpt2_large": {"label": "GPT-2 Large", "name": "gpt2-large", "dtype": "float16", "layers": "15,21,27,32,35"},
-    "llama2_7b": {"label": "Llama-2 7B", "name": "meta-llama/Llama-2-7b-hf", "dtype": "float16", "layers": "8,16,23,28,31"},
+    "pythia_1b": {"label": "Pythia-1B", "name": "EleutherAI/pythia-1b", "dtype": "float32", "layers": "3,6,9,12,15"},
 }
 GRID = [(3.0, 0.0), (0.0, 0.3), (3.0, 0.3)]
 

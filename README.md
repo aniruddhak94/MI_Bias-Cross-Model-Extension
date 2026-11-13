@@ -5,7 +5,7 @@
 
 ## Cross-model research roadmap
 
-This repository is being extended from EAP-based circuit mapping into a reproducible cross-model study of bias interventions. The implementation sequence is GPT-2 small replication, GPT-2 Large, then Llama-2, with gender and demographic prompt sets. See [docs/ROADMAP.md](docs/ROADMAP.md) for the research phases and acceptance criteria.
+This repository is being extended from EAP-based circuit mapping into a reproducible cross-model study of bias interventions. The Kaggle sequence is GPT-2 small replication, GPT-2 Large, then Pythia-1B; Pythia is an openly licensed, smaller replacement for Llama-2 7B in the default GPU run. See [docs/ROADMAP.md](docs/ROADMAP.md) for the research phases and acceptance criteria.
 
 The new `src/mi_bias/` package provides shared prompt-pair types, checkpoint-aware model loading, bias metrics, group-safe probes, CAA and covariance-aware LEACE hooks, a recall-prioritized sensitivity gate, task metrics, EAP adapters, and run manifests. The existing `Bias_Code/`, `Helper_Functions/`, and `Metrics/` pipeline remains available during migration.
 
@@ -25,7 +25,7 @@ python scripts/measure_bias_baseline.py path/to/heldout_prompts.json \
   --model gpt2 --output "$RUN_DIR/metrics/baseline_bias.json"
 ```
 
-The command creates an ignored `runs/<UTC-run-id>/` directory with the resolved configuration, code revision, environment details, dataset hashes, and folders for data, metrics, circuits, interventions, evaluation, and figures. Use `configs/cross_model_study.json` as the starting point for the extension experiment plan; model checkpoints still require compatible TransformerLens support and, for Llama-2, authorized Hugging Face access.
+The command creates an ignored `runs/<UTC-run-id>/` directory with the resolved configuration, code revision, environment details, dataset hashes, and folders for data, metrics, circuits, interventions, evaluation, and figures. Use `configs/cross_model_study.json` as the starting point for the extension experiment plan; the selected checkpoints are supported by the pinned TransformerLens version.
 
 **Replication caveat:** the thesis-reported baseline and the stored prior run do not agree. Reconcile the model/tokenizer revision, input dataset, metric, and environment before citing thesis figures as reproduced. The legacy L2 score remains available for comparison; the new continuation metric supports tokenization-aware paired scoring.
 
@@ -35,7 +35,7 @@ For Kaggle accelerator settings, copyable notebook cells, and per-phase completi
 
 After evaluation, generate thesis-style PNG and PDF figures from the saved JSON reports with `python scripts/plot_results.py`; it writes available figures under `results/figures/`.
 
-For the complete Kaggle run across GPT-2 small, GPT-2 Large, and Llama-2 7B, open [notebooks/cross_model_kaggle.ipynb](notebooks/cross_model_kaggle.ipynb). The notebook calls `scripts/run_cross_model_study.py`, which saves model-specific outputs and emits comparison figures through `scripts/plot_cross_model_results.py`. Candidate intervention settings are selected on validation data; results are saved in a unique run folder so a stopped Kaggle session can resume by run ID.
+For the complete Kaggle run across GPT-2 small, GPT-2 Large, and Pythia-1B, open [notebooks/cross_model_kaggle.ipynb](notebooks/cross_model_kaggle.ipynb). Pythia-1B is public on Hugging Face under Apache-2.0 and is supported by the project's pinned TransformerLens 2.16.1. The notebook calls `scripts/run_cross_model_study.py`, which saves model-specific outputs and emits comparison figures through `scripts/plot_cross_model_results.py`. Candidate intervention settings are selected on validation data; results are saved in a unique run folder so a stopped Kaggle session can resume by run ID.
 
 🚧 **Note:** This repository is currently undergoing restructuring. Some components may change. Thanks for your patience!
 
