@@ -22,6 +22,7 @@ results*/
 outputs/
 runs/
 artifacts/
+kaggle_data/
 __pycache__/
 *.pyc
 *.zip

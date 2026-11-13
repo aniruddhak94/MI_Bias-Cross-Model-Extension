@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import platform
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS = {
@@ -113,7 +114,32 @@ def main():
         "run_id": run_id, "models": {slug: MODELS[slug] for slug in slugs},
         "locked_settings": resolved,
         "data_dir": str(data),
-        "notes": ["Starter profession prompts are not thesis replication data.",
+        "dataset_manifest": (json.loads((data / "dataset_manifest.json").read_text(encoding="utf-8"))
+                             if (data / "dataset_manifest.json").exists() else None),
+        "code_revision": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT, text=True,
+            capture_output=True, check=False
+        ).stdout.strip() or None,
+        "environment": {
+            "python": platform.python_version(),
+            "torch": __import__("torch").__version__,
+        },
+        "metric_protocol": {
+            "primary_bias_metric": "paired, tokenization-aware he/him/his versus she/her/hers continuation log odds",
+            "historical_bias_metric": "prior thesis's first-token L2 over 20 aligned male/female vocabulary entries",
+            "confidence_intervals": "occupation-group bootstrap",
+            "validation_selection": "maximum relative reduction on validation data using the primary metric",
+        },
+        "historical_thesis_reference": {
+            "gpt2_small_full_200_bias_reduction_percent": 10.07,
+            "gpt2_small_prompts": 200,
+            "status": "reference only; full-set prior score is not a held-out estimate",
+        },
+        "analysis_scope": {
+            "included": ["group-held-out probes", "CAA/LEACE validation sweep", "static and gated held-out evaluation", "CoLA perplexity"],
+            "not_included": ["EAP edge ranking and direct activation-patching validation", "broad independently annotated gate evaluation"],
+        },
+        "notes": ["Held-out results use about 40 prompts from 20 occupations; generalization is limited to this occupation-prompt domain.",
                   "Capability is CoLA validation language-modeling perplexity, not task accuracy."],
     }
     root.mkdir(parents=True, exist_ok=True)

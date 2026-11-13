@@ -78,7 +78,11 @@ def load_hooked_model(
     hooked.eval()
     resolved_model_revision = getattr(hf_model.config, "_commit_hash", None) or revision
     resolved_tokenizer_revision = (
-        getattr(tokenizer, "init_kwargs", {}).get("_commit_hash") or revision
+        getattr(tokenizer, "init_kwargs", {}).get("_commit_hash")
+        or revision
+        # This loader uses the same repository/revision for model and tokenizer.
+        # HF tokenizers do not consistently expose their resolved commit hash.
+        or resolved_model_revision
     )
     del hf_model
     gc.collect()

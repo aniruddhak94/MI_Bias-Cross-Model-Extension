@@ -29,6 +29,8 @@ The command creates an ignored `runs/<UTC-run-id>/` directory with the resolved 
 
 **Replication caveat:** the thesis-reported baseline and the stored prior run do not agree. Reconcile the model/tokenizer revision, input dataset, metric, and environment before citing thesis figures as reproduced. The legacy L2 score remains available for comparison; the new continuation metric supports tokenization-aware paired scoring.
 
+The updated cross-model notebook uses the original 200-pair gender prompt set in `Dataset/thesis_gender_bias_200.json`, creates stratified occupation-group splits, reports both the token-aware metric and the prior thesis L2 metric, and uses occupation-cluster bootstrap intervals. Its held-out split is still small and narrow in domain; include the limitations saved in each run manifest. The original source repository is left untouched.
+
 The expected prompt-pair fields and staged fitting/evaluation commands are documented in [docs/DATA_SCHEMA.md](docs/DATA_SCHEMA.md). The new path requires explicit concept labels and held-out candidate continuations; old data can still run through the legacy circuit-discovery scripts.
 
 For Kaggle accelerator settings, copyable notebook cells, and per-phase completion estimates, see [docs/KAGGLE_RUNBOOK.md](docs/KAGGLE_RUNBOOK.md).

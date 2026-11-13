@@ -2,7 +2,7 @@
 
 ## Research sequence
 
-1. **Replication and audit:** reproduce the thesis's GPT-2 small setup and reconcile the reported thesis numbers with saved experiment artifacts before claiming replication.
+1. **Replication and audit:** reproduce the thesis's GPT-2 small setup using `Dataset/thesis_gender_bias_200.json`; preserve the historical L2 score alongside token-aware continuation scoring, and reconcile model/tokenizer revisions and saved artifacts before claiming replication.
 2. **Comparable baselines:** measure gender and demographic bias on matched prompt sets, first with GPT-2 small, then GPT-2 Large, then Pythia-1B for the default Kaggle study. Llama-2 remains an optional future run for a larger-memory environment. Keep model revisions, tokenizers, data versions, and per-prompt outputs attached to every result.
 3. **Mechanism analysis:** use EAP to rank edges; validate top-ranked edges with direct activation patching. Train layerwise probes with complete prompt groups held out together. Treat probe scores as decodability evidence, not causal evidence.
 4. **Static interventions:** compare edge ablation, CAA, covariance-aware LEACE, and their hybrid. Fit directions and projections on training data; tune strengths on validation data; report locked settings on held-out data.

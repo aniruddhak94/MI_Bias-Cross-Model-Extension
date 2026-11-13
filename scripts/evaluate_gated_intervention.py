@@ -13,7 +13,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from mi_bias.data import load_prompt_pairs
 from mi_bias.guardrails import validate_bias_metric_pairs
 from mi_bias.interventions import build_residual_hooks
-from mi_bias.metrics import score_prompt_bias, summarize_paired_changes
+from mi_bias.metrics import (
+    score_prompt_bias, score_thesis_legacy_l2, summarize_paired_changes,
+    thesis_gender_token_ids,
+)
 from mi_bias.models import load_hooked_model
 
 
@@ -55,7 +58,9 @@ def main():
     )
     prompts = [pair.clean for pair in pairs]
     gate_decisions = gate.predict_sensitive(prompts)
-    before, static_after, gated_after, per_prompt = [], [], [], []
+    before, static_after, gated_after, legacy_before, legacy_static, legacy_gated = [], [], [], [], [], []
+    per_prompt = []
+    thesis_token_ids = thesis_gender_token_ids(model)
     gate_eval_prompts, gold = [], []
     for pair in pairs:
         gate_eval_prompts.extend([pair.clean, pair.corrupted])
@@ -72,11 +77,20 @@ def main():
         b = float(baseline["bias_score"].item())
         s = float(treated["bias_score"].item())
         g = s if apply_intervention else b
+        legacy_b = score_thesis_legacy_l2(model, pair.clean, *thesis_token_ids)
+        legacy_s = score_thesis_legacy_l2(
+            model, pair.clean, *thesis_token_ids, hooks=hooks
+        )
+        legacy_g = legacy_s if apply_intervention else legacy_b
         before.append(b)
         static_after.append(s)
         gated_after.append(g)
+        legacy_before.append(legacy_b)
+        legacy_static.append(legacy_s)
+        legacy_gated.append(legacy_g)
         per_prompt.append({
             "pair_id": pair.pair_id,
+            "group_id": pair.group_id,
             "bias_relevant_gold": pair.clean_label,
             "gate_score": float(gate.classifier.predict_proba(
                 gate.vectorizer.transform([pair.clean])
@@ -85,6 +99,9 @@ def main():
             "bias_before": b,
             "bias_always_on": s,
             "bias_gated": g,
+            "thesis_legacy_l2_before": legacy_b,
+            "thesis_legacy_l2_always_on": legacy_s,
+            "thesis_legacy_l2_gated": legacy_g,
         })
 
     report = {
@@ -94,11 +111,28 @@ def main():
         "dtype": transforms.get("dtype"),
         "gate_threshold": gate.threshold,
         "summary": {
-            "gate_off": summarize_paired_changes(before, before),
-            "always_on": summarize_paired_changes(before, static_after),
-            "gated": summarize_paired_changes(before, gated_after),
+            "gate_off": summarize_paired_changes(
+                before, before, groups=[pair.group_id for pair in pairs]
+            ),
+            "always_on": summarize_paired_changes(
+                before, static_after, groups=[pair.group_id for pair in pairs]
+            ),
+            "gated": summarize_paired_changes(
+                before, gated_after, groups=[pair.group_id for pair in pairs]
+            ),
             "n_prompts_intervened": sum(gate_decisions),
             "intervention_rate": sum(gate_decisions) / max(len(gate_decisions), 1),
+        },
+        "thesis_legacy_l2_summary": {
+            "gate_off": summarize_paired_changes(
+                legacy_before, legacy_before, groups=[pair.group_id for pair in pairs]
+            ),
+            "always_on": summarize_paired_changes(
+                legacy_before, legacy_static, groups=[pair.group_id for pair in pairs]
+            ),
+            "gated": summarize_paired_changes(
+                legacy_before, legacy_gated, groups=[pair.group_id for pair in pairs]
+            ),
         },
         "per_prompt": per_prompt,
     }

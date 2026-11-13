@@ -12,7 +12,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from mi_bias.data import load_prompt_pairs
 from mi_bias.guardrails import validate_bias_metric_pairs
-from mi_bias.metrics import bootstrap_mean_interval, score_prompt_bias
+from mi_bias.metrics import (
+    bootstrap_mean_interval, score_prompt_bias, score_thesis_legacy_l2,
+    thesis_gender_token_ids,
+)
 from mi_bias.models import architecture_metadata, load_hooked_model
 
 
@@ -33,19 +36,25 @@ def main():
     loaded = load_hooked_model(args.model, revision=args.revision, device=args.device,
                                dtype=args.dtype,
                                token=args.hf_token)
-    scores, rows = [], []
+    scores, legacy_scores, rows = [], [], []
+    thesis_token_ids = thesis_gender_token_ids(loaded.model)
     for pair in pairs:
         male = pair.metadata["male_continuations"]
         female = pair.metadata["female_continuations"]
         score = score_prompt_bias(loaded.model, pair.clean, male, female)
         value = float(score["bias_score"].item())
         scores.append(value)
+        legacy_value = score_thesis_legacy_l2(
+            loaded.model, pair.clean, *thesis_token_ids
+        )
+        legacy_scores.append(legacy_value)
         rows.append({
             "pair_id": pair.pair_id,
             "group_id": pair.group_id,
             "bias_type": pair.bias_type,
             "prompt": pair.clean,
             "bias_score": value,
+            "thesis_legacy_l2_bias_score": legacy_value,
             "male_logprobs": score["male_logprobs"].tolist(),
             "female_logprobs": score["female_logprobs"].tolist(),
         })
@@ -59,8 +68,18 @@ def main():
         "n_prompts": len(scores),
         "bias_summary": {
             "mean_bias": sum(scores) / len(scores),
-            "mean_bias_bootstrap_95ci": bootstrap_mean_interval(scores),
+            "mean_bias_bootstrap_95ci": bootstrap_mean_interval(
+                scores, groups=[pair.group_id for pair in pairs]
+            ),
             "n": len(scores),
+        },
+        "thesis_legacy_l2_summary": {
+            "definition": "First-token L2 distance over the previous thesis's aligned gender word lists.",
+            "mean_bias": sum(legacy_scores) / len(legacy_scores),
+            "mean_bias_bootstrap_95ci": bootstrap_mean_interval(
+                legacy_scores, groups=[pair.group_id for pair in pairs]
+            ),
+            "n": len(legacy_scores),
         },
         "per_prompt": rows,
     }

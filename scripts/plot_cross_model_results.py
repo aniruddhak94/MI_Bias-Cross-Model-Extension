@@ -35,12 +35,22 @@ def save(fig, folder: Path, stem: str):
     print(f"Saved {folder / stem}.png and .pdf")
 
 
-def bootstrap_mean(values, rng, n_boot=5000):
+def bootstrap_mean(values, rng, n_boot=5000, groups=None):
     x = np.asarray(values, dtype=float)
     if len(x) == 0:
         return (np.nan, np.nan)
-    idx = rng.integers(0, len(x), size=(n_boot, len(x)))
-    means = x[idx].mean(axis=1)
+    if groups is None:
+        idx = rng.integers(0, len(x), size=(n_boot, len(x)))
+        means = x[idx].mean(axis=1)
+    else:
+        groups = np.asarray(groups, dtype=str)
+        if len(groups) != len(x):
+            raise ValueError("Provide one bootstrap group per prompt")
+        clusters = [x[groups == group] for group in np.unique(groups)]
+        draws = rng.integers(0, len(clusters), size=(n_boot, len(clusters)))
+        means = np.asarray([
+            np.concatenate([clusters[i] for i in draw]).mean() for draw in draws
+        ])
     return tuple(np.quantile(means, [0.025, 0.975]))
 
 
@@ -67,6 +77,7 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
             print(f"WARNING: baseline and static pre-scores differ for {slug}; figures use baseline JSON values")
         before = before_from_baseline
     rng = np.random.default_rng(seed)
+    group_ids = [row.get("group_id", row.get("pair_id")) for row in rows]
     reductions = before - after
     labels = ["Baseline", "Static"]
     values = [before, after]
@@ -79,7 +90,7 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
             colors.append(COLORS["gated"])
 
     means = [float(x.mean()) for x in values]
-    intervals = [bootstrap_mean(x, rng) for x in values]
+    intervals = [bootstrap_mean(x, rng, groups=group_ids) for x in values]
     errors = np.asarray([[m - ci[0] for m, ci in zip(means, intervals)],
                          [ci[1] - m for m, ci in zip(means, intervals)]])
     fig, ax = plt.subplots(figsize=(7.8, 4.8))
@@ -93,7 +104,7 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
     fig.tight_layout()
     save(fig, folder, f"{slug}_heldout_bias")
 
-    ci = bootstrap_mean(reductions, rng)
+    ci = bootstrap_mean(reductions, rng, groups=group_ids)
     fig, ax = plt.subplots(figsize=(7.4, 3.8))
     ax.errorbar(reductions.mean(), 0,
                 xerr=[[reductions.mean()-ci[0]], [ci[1]-reductions.mean()]],
@@ -106,6 +117,28 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
     fig.tight_layout()
     save(fig, folder, f"{slug}_paired_reduction")
 
+    thesis_summary = (static or {}).get("thesis_legacy_l2_summary")
+    thesis_rows = (static or {}).get("per_prompt", [])
+    if thesis_summary and thesis_rows and all(
+        "thesis_legacy_l2_before" in row and "thesis_legacy_l2_after" in row
+        for row in thesis_rows
+    ):
+        legacy_before = np.asarray([row["thesis_legacy_l2_before"] for row in thesis_rows], dtype=float)
+        legacy_after = np.asarray([row["thesis_legacy_l2_after"] for row in thesis_rows], dtype=float)
+        legacy_delta = legacy_before - legacy_after
+        legacy_ci = bootstrap_mean(legacy_delta, rng, groups=group_ids)
+        fig, ax = plt.subplots(figsize=(7.4, 3.8))
+        ax.errorbar(legacy_delta.mean(), 0,
+                    xerr=[[legacy_delta.mean()-legacy_ci[0]], [legacy_ci[1]-legacy_delta.mean()]],
+                    fmt="o", color="#8E44AD", capsize=6, markersize=8)
+        ax.axvline(0, color="#C0392B", linestyle="--", label="No mean reduction")
+        ax.set_yticks([])
+        ax.set_xlabel("Historical first-token L2 reduction (+ means lower bias)")
+        ax.set_title(f"{label}: thesis-compatible metric, occupation-cluster bootstrap CI\nn={len(legacy_delta)}")
+        ax.legend()
+        fig.tight_layout()
+        save(fig, folder, f"{slug}_thesis_legacy_l2")
+
     per_prompt_reduction = np.sort(reductions)
     fig, ax = plt.subplots(figsize=(8.5, max(4.5, min(10, len(rows) * 0.13))))
     ax.barh(np.arange(len(rows)), per_prompt_reduction, color=np.where(
@@ -117,9 +150,12 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
     fig.tight_layout()
     save(fig, folder, f"{slug}_per_prompt_changes")
 
+    group_indices = [np.flatnonzero(np.asarray(group_ids) == group)
+                     for group in np.unique(np.asarray(group_ids, dtype=str))]
+    group_draws = rng.integers(0, len(group_indices), size=(5000, len(group_indices)))
     relative_samples = []
-    idx = rng.integers(0, len(before), size=(5000, len(before)))
-    for sample in idx:
+    for draw in group_draws:
+        sample = np.concatenate([group_indices[i] for i in draw])
         denom = before[sample].mean()
         relative_samples.append(100 * reductions[sample].mean() / max(denom, 1e-12))
     relative_ci = np.quantile(relative_samples, [0.025, 0.975])
@@ -218,6 +254,20 @@ def plot_model(slug, label, baseline, static, gated, artifacts_root, results_roo
             float(capability_summary["perplexity_change_percent"])
             if capability_summary else None
         ),
+        "thesis_legacy_l2_mean_baseline": (
+            float(thesis_summary["mean_before"]) if thesis_summary else None
+        ),
+        "thesis_legacy_l2_mean_static": (
+            float(thesis_summary["mean_after"]) if thesis_summary else None
+        ),
+        "thesis_legacy_l2_reduction_percent": (
+            float(thesis_summary["relative_reduction_percent"])
+            if thesis_summary else None
+        ),
+        "thesis_legacy_l2_reduction_ci": (
+            thesis_summary.get("relative_reduction_bootstrap_95ci")
+            if thesis_summary else None
+        ),
     }
 
 
@@ -240,6 +290,24 @@ def plot_cross_model(summaries, output_root):
     ax.legend()
     fig.tight_layout()
     save(fig, output_root, "cross_model_relative_reduction")
+
+    legacy = [item for item in summaries
+              if item.get("thesis_legacy_l2_reduction_percent") is not None]
+    if legacy:
+        labels_legacy = [item["label"] for item in legacy]
+        lx = np.arange(len(legacy))
+        lmeans = np.asarray([item["thesis_legacy_l2_reduction_percent"] for item in legacy])
+        lleft = np.asarray([item["thesis_legacy_l2_reduction_ci"][0] for item in legacy])
+        lright = np.asarray([item["thesis_legacy_l2_reduction_ci"][1] for item in legacy])
+        fig, ax = plt.subplots(figsize=(9, 5))
+        ax.errorbar(lx, lmeans, yerr=[lmeans-lleft, lright-lmeans], fmt="o", capsize=6)
+        ax.axhline(0, color="#C0392B", linestyle="--", label="No mean reduction")
+        ax.set_xticks(lx, labels_legacy)
+        ax.set_ylabel("Held-out historical L2 bias reduction (%)")
+        ax.set_title("Thesis-compatible metric across models\nOccupation-cluster bootstrap intervals")
+        ax.legend()
+        fig.tight_layout()
+        save(fig, output_root, "cross_model_thesis_legacy_l2")
 
     fig, ax = plt.subplots(figsize=(9, 5))
     width = 0.36
@@ -273,7 +341,7 @@ def plot_cross_model(summaries, output_root):
         save(fig, output_root, "cross_model_bias_capability_tradeoff")
 
     table = {
-        "comparison_note": "Relative reductions use paired held-out prompts; absolute scores may differ with model/tokenizer behavior.",
+        "comparison_note": "Relative reductions use paired held-out prompts with occupation-cluster bootstrap intervals; absolute scores may differ with model/tokenizer behavior.",
         "models": summaries,
     }
     output_root.mkdir(parents=True, exist_ok=True)

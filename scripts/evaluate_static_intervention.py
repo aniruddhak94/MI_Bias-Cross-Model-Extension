@@ -13,7 +13,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from mi_bias.data import load_prompt_pairs
 from mi_bias.guardrails import validate_bias_metric_pairs
 from mi_bias.interventions import build_residual_hooks
-from mi_bias.metrics import score_prompt_bias, summarize_paired_changes
+from mi_bias.metrics import (
+    score_prompt_bias, score_thesis_legacy_l2, summarize_paired_changes,
+    thesis_gender_token_ids,
+)
 from mi_bias.models import load_hooked_model
 
 
@@ -46,7 +49,8 @@ def main():
         expected_d_model=int(loaded.model.cfg.d_model),
         n_layers=int(loaded.model.cfg.n_layers),
     )
-    before, after, per_prompt = [], [], []
+    before, after, legacy_before, legacy_after, per_prompt = [], [], [], [], []
+    thesis_token_ids = thesis_gender_token_ids(loaded.model)
     for pair in pairs:
         male = pair.metadata.get("male_continuations")
         female = pair.metadata.get("female_continuations")
@@ -60,12 +64,23 @@ def main():
         after_value = float(treated["bias_score"].item())
         before.append(before_value)
         after.append(after_value)
+        legacy_before_value = score_thesis_legacy_l2(
+            loaded.model, pair.clean, *thesis_token_ids
+        )
+        legacy_after_value = score_thesis_legacy_l2(
+            loaded.model, pair.clean, *thesis_token_ids, hooks=hooks
+        )
+        legacy_before.append(legacy_before_value)
+        legacy_after.append(legacy_after_value)
         per_prompt.append({
             "pair_id": pair.pair_id,
+            "group_id": pair.group_id,
             "clean_prompt": pair.clean,
             "bias_before": before_value,
             "bias_after": after_value,
             "reduction": before_value - after_value,
+            "thesis_legacy_l2_before": legacy_before_value,
+            "thesis_legacy_l2_after": legacy_after_value,
             "male_logprobs_before": baseline["male_logprobs"].tolist(),
             "female_logprobs_before": baseline["female_logprobs"].tolist(),
             "male_logprobs_after": treated["male_logprobs"].tolist(),
@@ -79,7 +94,12 @@ def main():
         "layers": transforms["layers"],
         "caa_strength": args.caa_strength,
         "leace_alpha": args.leace_alpha,
-        "summary": summarize_paired_changes(before, after),
+        "summary": summarize_paired_changes(
+            before, after, groups=[pair.group_id for pair in pairs]
+        ),
+        "thesis_legacy_l2_summary": summarize_paired_changes(
+            legacy_before, legacy_after, groups=[pair.group_id for pair in pairs]
+        ),
         "per_prompt": per_prompt,
         "selection_note": "Parameters must be locked using validation data before this held-out evaluation.",
     }
