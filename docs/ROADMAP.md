@@ -37,6 +37,12 @@ runs/<run-id>/     # config, manifest, per-example metrics, figures
 - Compare gate-off, always-on, static, and gated outcomes; report task-level capability metrics where a task-specific evaluator is available.
 - GPT-2 small is the replication anchor; GPT-2 Large and Llama-2 are the extension models. Learned vectors and layer indices are model-specific.
 
+## Current execution status
+
+The scripts accept model checkpoints by name and refit model-specific artifacts, so the workflow is structured for cross-model experiments. The results reviewed so far are from GPT-2 small only; GPT-2 Large and Llama-2 have not yet been run. A configured model list is a plan, not evidence of completed cross-model results.
+
+The split preflight (`scripts/validate_splits.py`) blocks pair-ID, group-ID, and exact normalized prompt overlap between train, validation, and test. Bias-evaluation scripts validate the matched continuation arrays before loading model weights. These checks reduce common experiment errors; they do not establish that labels or prompt templates are scientifically valid.
+
 ## Initial replication reference
 
 The thesis reports a 10.07% bias reduction, 10.15% CoLA perplexity increase, and improvement on 193/200 prompts with CAA strength 3.0, LEACE blend 0.3, and layers 6, 8, 9, 10, and 11. The saved prior-run JSON instead records a baseline bias of 10.8151 and baseline perplexity of 160.52, so these values must be reconciled before the headline result is reused.

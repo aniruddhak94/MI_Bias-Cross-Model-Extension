@@ -35,6 +35,8 @@ For Kaggle accelerator settings, copyable notebook cells, and per-phase completi
 
 After evaluation, generate thesis-style PNG and PDF figures from the saved JSON reports with `python scripts/plot_results.py`; it writes available figures under `results/figures/`.
 
+For the complete Kaggle run across GPT-2 small, GPT-2 Large, and Llama-2 7B, open [notebooks/cross_model_kaggle.ipynb](notebooks/cross_model_kaggle.ipynb). The notebook calls `scripts/run_cross_model_study.py`, which saves model-specific outputs and emits comparison figures through `scripts/plot_cross_model_results.py`. Candidate intervention settings are selected on validation data; results are saved in a unique run folder so a stopped Kaggle session can resume by run ID.
+
 🚧 **Note:** This repository is currently undergoing restructuring. Some components may change. Thanks for your patience!
 
 ## Overview

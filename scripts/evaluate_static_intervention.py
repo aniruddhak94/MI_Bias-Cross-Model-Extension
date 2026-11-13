@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from mi_bias.data import load_prompt_pairs
+from mi_bias.guardrails import validate_bias_metric_pairs
 from mi_bias.interventions import build_residual_hooks
 from mi_bias.metrics import score_prompt_bias, summarize_paired_changes
 from mi_bias.models import load_hooked_model
@@ -30,6 +31,8 @@ def main():
 
     import torch
     transforms = torch.load(args.transforms, map_location="cpu", weights_only=False)
+    pairs = load_prompt_pairs(args.test_data)
+    validate_bias_metric_pairs(pairs)
     loaded = load_hooked_model(
         transforms["model_name"], revision=transforms.get("model_revision"),
         device=args.device, dtype=transforms.get("dtype", "auto"), token=args.hf_token
@@ -37,7 +40,6 @@ def main():
     saved_revision = transforms.get("model_revision")
     if saved_revision and loaded.model_revision and saved_revision != loaded.model_revision:
         raise ValueError("Loaded model revision does not match the fitted transform artifact")
-    pairs = load_prompt_pairs(args.test_data)
     hooks = build_residual_hooks(
         transforms["caa_directions"], transforms["leace_transforms"],
         caa_strength=args.caa_strength, leace_alpha=args.leace_alpha,

@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from mi_bias.data import load_prompt_pairs
+from mi_bias.guardrails import validate_bias_metric_pairs
 from mi_bias.metrics import bootstrap_mean_interval, score_prompt_bias
 from mi_bias.models import architecture_metadata, load_hooked_model
 
@@ -28,15 +29,14 @@ def main():
     args = parser.parse_args()
 
     pairs = load_prompt_pairs(args.dataset)
+    validate_bias_metric_pairs(pairs)
     loaded = load_hooked_model(args.model, revision=args.revision, device=args.device,
                                dtype=args.dtype,
                                token=args.hf_token)
     scores, rows = [], []
     for pair in pairs:
-        male = pair.metadata.get("male_continuations")
-        female = pair.metadata.get("female_continuations")
-        if not isinstance(male, list) or not isinstance(female, list):
-            raise ValueError(f"Pair {pair.pair_id} is missing candidate continuation arrays")
+        male = pair.metadata["male_continuations"]
+        female = pair.metadata["female_continuations"]
         score = score_prompt_bias(loaded.model, pair.clean, male, female)
         value = float(score["bias_score"].item())
         scores.append(value)

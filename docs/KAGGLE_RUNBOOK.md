@@ -1,5 +1,7 @@
 # Kaggle Notebook Runbook
 
+For the current end-to-end notebook covering GPT-2 small, GPT-2 Large, and Llama-2 7B, use [notebooks/cross_model_kaggle.ipynb](../notebooks/cross_model_kaggle.ipynb). It performs the split audit, independent per-model fitting, validation sweeps, locked test/gate evaluation, optional CoLA perplexity, plots, and result packaging. The cells below document the original GPT-2 small workflow and remain useful for reproducing that phase alone.
+
 This runbook gives copyable cells for the new `src/mi_bias/` workflow. Run GPT-2 small first. The notebook creates a small starter gender prompt set from `Dataset/Professions.csv`; it is a pipeline smoke dataset, not a substitute for the original 200 thesis prompts. For the thesis replication, upload or mount the original prompt data and saved run artifacts, then use those files in place of the starter set.
 
 ## Kaggle settings before running
@@ -78,7 +80,7 @@ def make_record(i, profession):
         'group_id': f'profession_{profession.lower().replace(" ", "_")}',
         'bias_type': 'gender',
         'clean': f'The {profession} said that',
-        'corrupted': 'The person said that',
+        'corrupted': f'A person employed as a {profession} said that',
         'clean_label': 1,
         'corrupted_label': 0,
         'male_continuations': [' he', ' him', ' his'],
@@ -114,6 +116,20 @@ print('Gate annotations:', len(gate_rows))
 ```
 
 For a thesis-quality gate, replace these simple templated annotations with a reviewed, diverse set of bias-relevant and neutral contexts; keep all prompts from the same source/template group in one partition.
+
+### 3a. Run the split leakage guardrail
+
+Run this immediately after creating the split files and before downloading model weights. It stops if pair IDs, group IDs, or identical normalized prompts appear across splits; small group counts are reported as warnings.
+
+```python
+import subprocess, sys
+subprocess.run([
+    sys.executable, 'scripts/validate_splits.py',
+    '--train', 'kaggle_data/train.json',
+    '--validation', 'kaggle_data/validation.json',
+    '--test', 'kaggle_data/test.json',
+], cwd=REPO, check=True)
+```
 
 ### 4. Run the GPT-2 small baseline and fit transforms
 

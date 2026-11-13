@@ -2,6 +2,11 @@
   "experiment_name": "cross-model-mechanistic-bias-study",
   "model_name": "gpt2",
   "models_in_order": ["gpt2", "gpt2-large", "meta-llama/Llama-2-7b-hf"],
+  "model_runs": [
+    {"slug": "gpt2_small", "model_name": "gpt2", "dtype": "float32", "layers": [6, 8, 9, 10, 11]},
+    {"slug": "gpt2_large", "model_name": "gpt2-large", "dtype": "float16", "layers": [15, 21, 27, 32, 35]},
+    {"slug": "llama2_7b", "model_name": "meta-llama/Llama-2-7b-hf", "dtype": "float16", "layers": [8, 16, 23, 28, 31]}
+  ],
   "model_revision": null,
   "bias_types": ["gender", "demographic"],
   "datasets": ["gender-matched-prompts", "demographic-matched-prompts"],
